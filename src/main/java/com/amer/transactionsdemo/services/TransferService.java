@@ -30,29 +30,37 @@ public class TransferService {
     )
     public void transfer(Long fromId, Long toId, BigDecimal amount) {
 
-        Account from = accountRepo.findById(fromId)
-                .orElseThrow(() -> new AccountNotFoundException(fromId));
+        try {
+            Account from = accountRepo.findById(fromId)
+                    .orElseThrow(() -> new AccountNotFoundException(fromId));
 
-        Account to = accountRepo.findById(toId)
-                .orElseThrow(() -> new AccountNotFoundException(toId));
+            Account to = accountRepo.findById(toId)
+                    .orElseThrow(() -> new AccountNotFoundException(toId));
 
-        if (from.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException();
+            if (from.getBalance().compareTo(amount) < 0) {
+                throw new InsufficientBalanceException();
+            }
+
+            auditService.log("Transfer started from " + fromId + " to " + toId);
+
+            from.setBalance(from.getBalance().subtract(amount));
+            accountRepo.save(from);
+
+            if (amount.compareTo(BigDecimal.valueOf(1000)) > 0) {
+                throw new TransferAmountTooLargeException(amount);
+            }
+
+            to.setBalance(to.getBalance().add(amount));
+            accountRepo.save(to);
+
+            auditService.log("Transfer completed");
+
+        } catch (RuntimeException e) {
+            // ALWAYS logged, ALWAYS committed
+            auditService.log("Transfer failed: " + e.getMessage());
+            throw e; // rollback REQUIRED transaction
         }
-
-        from.setBalance(from.getBalance().subtract(amount));
-        accountRepo.save(from);
-
-        auditService.log("Transfer started from " + fromId + " to " + toId);
-
-        if (amount.compareTo(BigDecimal.valueOf(1000)) > 0) {
-            throw new TransferAmountTooLargeException(amount);
-        }
-
-        to.setBalance(to.getBalance().add(amount));
-        accountRepo.save(to);
-
-        auditService.log("Transfer completed");
     }
+
 
 }
