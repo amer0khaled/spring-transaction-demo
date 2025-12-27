@@ -1,0 +1,5 @@
+### POST request to Successful transaction
+POST http://localhost:8080/api/transfer?from=1&to=2&amount=200
+
+
+###
